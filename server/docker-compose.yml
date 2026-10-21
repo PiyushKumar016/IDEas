@@ -1,0 +1,20 @@
+services:
+  cpp-runner:
+    build:
+      context: ./docker/cpp
+    image: ideas-cpp        
+
+  python-runner:
+    build:
+      context: ./docker/python
+    image: ideas-python
+
+  java-runner:
+    build:
+      context: ./docker/java
+    image: ideas-java
+
+  node-runner:
+    build:
+      context: ./docker/node
+    image: ideas-node

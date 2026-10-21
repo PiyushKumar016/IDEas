@@ -1,0 +1,28 @@
+version: "3.8"
+services:
+  backend:
+    build: ./server
+    ports:
+      - "8181:8181"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # backend ko docker control dene ke liye
+      - ./ideas-backend/temp:/app/temp
+    environment:
+      - NODE_ENV=production
+    
+
+  frontend:
+    build: ./client
+    ports:
+      - "5173:5173"
+    command: npm run dev -- --host
+
+  mongo:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
