@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor Dev as Developer
+    participant Page as Project.jsx
+    participant Tree as FolderStructure.jsx
+    participant EdCtx as EditorContext
+    participant TabsCtx as tabsContext
+    participant Panel as EditorPanel.jsx
+    participant Monaco as @monaco-editor/react
+    participant API as userAPI.js (postProject)
+    participant Backend as Express (postProject)
+    participant DB as MongoDB (Project Model)
+
+    Note over Dev,Page: Initial Load
+    Dev->>Page: Navigate to /project/:id
+    Page->>API: getProjectById(id)
+    API-->>Page: rootNode tree structure
+    Page->>Page: setFileExplorer(rootNode)
+
+    Note over Dev,Panel: File Open & Buffering
+    Dev->>Tree: Click on file node
+    Tree->>EdCtx: setEditorInfo({ id, fileName, content: file.content, language, used: true })
+    Tree->>TabsCtx: setTabs([...tabs, newTab])
+    Page->>Panel: Render <EditorPanel content={editorInfo.content} />
+    Panel->>Panel: useState(content) -> code
+    Panel->>Monaco: Mount with value={code}
+
+    Note over Dev,Monaco: Live Editing (The Disconnection Bug)
+    Dev->>Monaco: Types code changes
+    Monaco->>Panel: handleCodeChange(value)
+    Panel->>Panel: setCode(value)
+    Note over Panel,Page: Disconnect (FP-01): value never sent to EditorContext or fileExplorer!
+
+    Note over Dev,DB: Save Flow (Ctrl + S)
+    Dev->>Page: Press Ctrl+S
+    Page->>Page: handleSave() -> reads fileExplorer state
+    Page->>API: postProject(fileExplorer) (Stale content!)
+    API->>Backend: POST /user/project
+    Backend->>Backend: jwt.verify(cookie) -> uid
+    Backend->>DB: Project.updateOne({ owner: req.body.id }, { $set: { rootNode } })
+    Backend->>DB: User.updateOne({ uid }, { $addToSet: { projects: req.body.id } })
+    Backend-->>API: 200 { success: true }
+    API-->>Page: Console: "project saved successfully"
+    Note over Page,DB: Saved data in MongoDB lacks all edits typed in Monaco!

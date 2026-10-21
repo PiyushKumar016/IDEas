@@ -1,0 +1,31 @@
+graph TD
+    subgraph GlobalProviders [Global Context Providers (App.jsx)]
+        AuthProv["authContext (AuthProvider)<br/>State: user, loading"]
+        EdProv["EditorContext (EditorContextProvider)<br/>State: editorInfo { id, fileName, content, language, used }"]
+        TabsProv["tabsContext (TabsContextProvider)<br/>State: tabs [ { id, fileName, content, language, used } ]"]
+    end
+
+    subgraph PageLevelState [Page-Level Local States]
+        ProjState["Project.jsx<br/>State: fileExplorer (Root FileTreeNode)"]
+        CompState["Compiler.jsx<br/>State: code, language, loading, output"]
+        ProjectsState["Projects.jsx<br/>State: projects, search, isModalOpen, newProjectName, selectedColor"]
+    end
+
+    subgraph ComponentLevelState [Component Local States]
+        EdPanelState["EditorPanel.jsx<br/>State: code (Live Monaco buffer)"]
+        TreeState["FolderStructure.jsx (Recursive)<br/>State: showInput, newItemName, editMode, renameText"]
+        LeftClickMenu["LeftClickMenuContext<br/>State: contextMenu { visible, x, y, nodeId }"]
+    end
+
+    AuthProv -- "Consumes auth" --> Navbar
+    AuthProv -- "Gates navigation" --> RouteGuards["ProtectedRoute / PublicOnlyRoute"]
+
+    ProjState -- "Passes root tree prop" --> TreeState
+    TreeState -- "Mutates tree via callbacks" --> ProjState
+    TreeState -- "Selects file -> sets active tab & info" --> EdProv
+    TreeState -- "Appends to open tabs" --> TabsProv
+    EdProv -- "Passes initial content prop" --> EdPanelState
+    TabsProv -- "Renders open file tabs" --> TabsUI["Tabs.jsx"]
+    TabsUI -- "Switch tab -> updates active info" --> EdProv
+
+    EdPanelState -. "MISSING SYNC LINK (FP-01)" .-> ProjState

@@ -1,0 +1,32 @@
+graph TB
+    subgraph ClientHost [Client Browser]
+        ViteApp["React 19 SPA (Vite)<br/>Port: 5173"]
+    end
+
+    subgraph ServerHost [Backend Server]
+        ExpressApp["Express.js (Node 20)<br/>Port: 8181<br/>src/server.js"]
+        CodeRunnerService["codeRunner Service<br/>src/services/codeRunner.js"]
+    end
+
+    subgraph DataLayer [Persistence]
+        MongoEngine[("MongoDB 6.0<br/>Port: 27017<br/>Collections: users, projects")]
+    end
+
+    subgraph ExecutionLayer [Docker Engine]
+        DockerSock["Docker Daemon Socket<br/>Linux: /var/run/docker.sock<br/>Win: //./pipe/docker_engine"]
+        subgraph Containers [Ephemeral Sandboxes]
+            CPPContainer["Container: ideas-cpp<br/>gcc:12 / timeout 5"]
+            PyContainer["Container: ideas-python<br/>python:3.11-slim / timeout 5"]
+            JavaContainer["Container: ideas-java<br/>temurin:17-alpine / timeout 5"]
+            NodeContainer["Container: ideas-node<br/>node:20-slim / timeout 5"]
+        end
+    end
+
+    ViteApp -- "HTTP REST + Credentials (withCredentials: true)" --> ExpressApp
+    ExpressApp -- "Mongoose ODM (MONGO_URL)" --> MongoEngine
+    ExpressApp -- "Invoke Code Execution" --> CodeRunnerService
+    CodeRunnerService -- "Dockerode API" --> DockerSock
+    DockerSock -.-> CPPContainer
+    DockerSock -.-> PyContainer
+    DockerSock -.-> JavaContainer
+    DockerSock -.-> NodeContainer

@@ -21,7 +21,6 @@ function EditorPanel({ fileName, content, language }) {
   const handleCodeChange = (value) => {
     setCode(value || "");
   };
-
   const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
 

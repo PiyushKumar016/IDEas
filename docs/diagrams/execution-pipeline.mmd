@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    actor User as User Browser
+    participant UI as Compiler.jsx
+    participant API as userAPI.js (codeExecute)
+    participant Server as userController.js (codeExecution)
+    participant Service as codeRunner.js
+    participant FS as Local Filesystem (temp/)
+    participant Docker as Dockerode / Docker Engine
+
+    User->>UI: Selects language & clicks "Run Code"
+    UI->>UI: setLoading(true)
+    UI->>API: codeExecute({ code, language })
+    API->>Server: POST /user/runCode
+    Server->>Server: Validate non-empty & length <= 50000 chars
+    Server->>Service: codeRunner(code, language)
+
+    alt Language is "c" (FP-06)
+        Service-->>Server: { output: "", error: "Language 'c' supported nahi hai" }
+    else Supported Language
+        Service->>FS: mkdir temp/<submissionId>
+        Service->>FS: write main.<ext>
+        Service->>Docker: createContainer(image, bind temp:/code, mem 256MB, cpu 50%)
+        Service->>Docker: container.start()
+        Service->>Docker: collectOutput(container) [logs demux stream]
+        Docker-->>Service: stream ends with { stdout, stderr }
+        Service->>Docker: container.wait()
+        Service->>Docker: container.remove()
+        Service->>FS: rmSync(temp/<submissionId>)
+        Service-->>Server: { output: stdout, error: stderr }
+    end
+
+    Server-->>API: 200 { output, error }
+    API-->>UI: opt = { data: { output, error }, status: 200 }
+
+    Note over UI: Bug (FP-04): UI checks opt.error instead of opt.data.error!
+    alt opt.error check
+        UI->>UI: opt.error is undefined -> enters else branch!
+        UI->>UI: setOutput(opt.data.output) -> empty string if compilation error!
+    end
+    UI->>UI: setLoading(false)

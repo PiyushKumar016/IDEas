@@ -1,0 +1,50 @@
+sequenceDiagram
+    autonumber
+    actor User as User Browser
+    participant SignUpUI as SignUp.jsx / Login.jsx
+    participant AuthCtx as authcontext.jsx
+    participant Axios as userAPI.js
+    participant Server as Express (routes.js / UserRoutes.js)
+    participant Middleware as validate & register
+    participant Controller as userController.js
+    participant DB as MongoDB (User Model)
+
+    Note over User,SignUpUI: Registration Flow
+    User->>SignUpUI: Submit credentials (username, email, password)
+    SignUpUI->>Axios: postUser(mainData)
+    Axios->>Server: POST /user/signup
+    Server->>Middleware: validate(registerSchema)
+    alt Validation Failure
+        Middleware-->>Axios: 400 Bad Request
+        Axios-->>SignUpUI: Unhandled Promise Rejection (FP-03)
+    else Validation Success
+        Middleware->>Middleware: register() duplicate check
+        alt Email Exists
+            Middleware-->>Axios: 409 Conflict
+            Axios-->>SignUpUI: Unhandled Promise Rejection (FP-03)
+        else Email Free
+            Middleware->>Middleware: res.locals.uid = uuid(), pre-sign JWT
+            Middleware->>Controller: postUserData()
+            Controller->>Controller: bcrypt.hash(password, SALT)
+            Controller->>DB: user.save()
+            Controller-->>Server: Set-Cookie: accessToken (httpOnly)
+            Server-->>Axios: 200 { success: true, message: "Login successful" }
+            Axios-->>SignUpUI: response
+            SignUpUI->>SignUpUI: Crash on navigate('/dashboard') (FP-02)
+        end
+    end
+
+    Note over User,AuthCtx: Session Hydration Flow
+    AuthCtx->>Axios: getMe()
+    Axios->>Server: GET /user/me (Cookie: accessToken)
+    Server->>Controller: authenticate()
+    Controller->>Controller: jwt.verify(token, JWT_SECURITY_KEY)
+    alt Invalid/Expired Token
+        Controller-->>Axios: 401 Unauthorized
+        Axios-->>AuthCtx: Error caught -> user = null, loading = false
+    else Valid Token
+        Controller->>DB: User.findOne({ uid }).select("-password")
+        DB-->>Controller: { email, username }
+        Controller-->>Axios: 200 { success: true, user }
+        Axios-->>AuthCtx: setUser(user), setLoading(false)
+    end
